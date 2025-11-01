@@ -1,7 +1,10 @@
-from rest_framework import routers
-from .views import StudentViewSet
+from django.urls import path
+from . import views
 
-router = routers.DefaultRouter()
-router.register(r'', StudentViewSet)   # creates routes automatically
-
-urlpatterns = router.urls
+urlpatterns = [
+    path('welcome/', views.welcome),
+    path('list/', views.list_students),
+    path('add/', views.add_student),
+    path('update/', views.update_student),
+    path('delete/', views.delete_student),
+]
