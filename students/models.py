@@ -1,10 +1,13 @@
 from django.db import models
 
-# Create your models here.
 class Student(models.Model):
     name = models.CharField(max_length=100)
+    email = models.EmailField(unique=True)
     age = models.IntegerField()
-    email = models.EmailField()
-    course = models.CharField(max_length=50)
-    cgpa = models.FloatField()
-    attendance = models.FloatField()
+    course = models.CharField(max_length=100)
+    enrollment_date = models.DateField(auto_now_add=True, null=True)
+    phone_number = models.CharField(max_length=15, blank=True, null=True)
+    address = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return self.name

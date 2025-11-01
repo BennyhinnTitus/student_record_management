@@ -1,63 +1,61 @@
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_GET, require_POST, require_http_methods
-from rest_framework.parsers import JSONParser
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from rest_framework import status
 from .models import Student
 from .serializers import StudentSerializer
 
-# ✅ 1. Welcome Endpoint
-@require_GET
-def welcome(request):
-    return JsonResponse({"message": "Welcome to the Student Management API"}, status=200)
-
-
-# ✅ 2. List All Students
-@require_GET
+# 1️⃣ List All Students
+@api_view(['GET'])
 def list_students(request):
     students = Student.objects.all()
     serializer = StudentSerializer(students, many=True)
-    return JsonResponse(serializer.data, safe=False, status=200)
+    return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-# ✅ 3. Add New Student
-@csrf_exempt
-@require_POST
-def add_student(request):
-    data = JSONParser().parse(request)
-    serializer = StudentSerializer(data=data)
+# 2️⃣ Create Student
+@api_view(['POST'])
+def create_student(request):
+    serializer = StudentSerializer(data=request.data)
     if serializer.is_valid():
         serializer.save()
-        return JsonResponse(serializer.data, status=201)
-    return JsonResponse(serializer.errors, status=400)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-# ✅ 4. Update Student (Full or Partial)
-@csrf_exempt
-@require_http_methods(["PUT", "PATCH"])
-def update_student(request):
-    data = JSONParser().parse(request)
+# 3️⃣ Get Single Student
+@api_view(['GET'])
+def get_student(request, pk):
     try:
-        student = Student.objects.get(id=data.get('id'))
+        student = Student.objects.get(pk=pk)
     except Student.DoesNotExist:
-        return JsonResponse({'error': 'Student not found'}, status=404)
+        return Response({"error": "Student not found"}, status=status.HTTP_404_NOT_FOUND)
 
-    partial = request.method == "PATCH"
-    serializer = StudentSerializer(student, data=data, partial=partial)
+    serializer = StudentSerializer(student)
+    return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+# 4️⃣ Update Student
+@api_view(['PUT'])
+def update_student(request, pk):
+    try:
+        student = Student.objects.get(pk=pk)
+    except Student.DoesNotExist:
+        return Response({"error": "Student not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    serializer = StudentSerializer(instance=student, data=request.data)
     if serializer.is_valid():
         serializer.save()
-        msg = "Student fully updated ✅" if not partial else "Student partially updated ⚙️"
-        return JsonResponse({"message": msg, "data": serializer.data}, status=200)
-    return JsonResponse(serializer.errors, status=400)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-# ✅ 5. Delete Student
-@csrf_exempt
-@require_http_methods(["DELETE"])
-def delete_student(request):
-    data = JSONParser().parse(request)
+# 5️⃣ Delete Student
+@api_view(['DELETE'])
+def delete_student(request, pk):
     try:
-        student = Student.objects.get(id=data.get('id'))
-        student.delete()
-        return JsonResponse({'message': 'Student deleted successfully 🗑️'}, status=200)
+        student = Student.objects.get(pk=pk)
     except Student.DoesNotExist:
-        return JsonResponse({'error': 'Student not found'}, status=404)
+        return Response({"error": "Student not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    student.delete()
+    return Response({"message": "Student deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
