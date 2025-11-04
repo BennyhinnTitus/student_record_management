@@ -9,6 +9,18 @@ class CourseSerializer(serializers.ModelSerializer):
         model = Course
         fields = '__all__'
 
+    # ✅ validate course_name length
+    def validate_course_name(self, value):
+        if len(value) < 3:
+            raise serializers.ValidationError("Course name must be at least 3 characters long.")
+        return value
+
+    # ✅ ensure unique course_code
+    def validate_course_code(self, value):
+        if Course.objects.filter(course_code=value).exists():
+            raise serializers.ValidationError("Course code must be unique.")
+        return value
+
 
 # 👩‍🎓 Student Serializer (with validations + nested course info)
 class StudentSerializer(serializers.ModelSerializer):
@@ -63,11 +75,16 @@ class StudentSerializer(serializers.ModelSerializer):
         return data
 
 
-# 🔁 Course Detail Serializer (reverse nested: shows all students)
+class StudentMiniSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Student
+        fields = ['id', 'name', 'email', 'age']
+
+
 class CourseDetailSerializer(serializers.ModelSerializer):
-    # related_name='students' allows reverse lookup
-    students = StudentSerializer(many=True, read_only=True)
+    students = StudentMiniSerializer(many=True, read_only=True)
 
     class Meta:
         model = Course
         fields = ['id', 'course_name', 'course_code', 'students']
+
