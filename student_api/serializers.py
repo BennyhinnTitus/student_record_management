@@ -1,10 +1,20 @@
 from rest_framework import serializers
-from .models import Student
-from django.core.exceptions import ValidationError
+from .models import Student, Course
 import re
 
 
+# 🎓 Course Serializer (basic)
+class CourseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Course
+        fields = '__all__'
+
+
+# 👩‍🎓 Student Serializer (with validations + nested course info)
 class StudentSerializer(serializers.ModelSerializer):
+    # Show full course details inside Student response
+    course = CourseSerializer(read_only=True)
+
     class Meta:
         model = Student
         fields = '__all__'
@@ -45,8 +55,19 @@ class StudentSerializer(serializers.ModelSerializer):
         course = data.get('course')
         age = data.get('age')
 
-        if course == "Computer Science" and age < 20:
-            raise serializers.ValidationError("Students in Computer Science must be at least 20 years old.")
-        if course == "Data Science" and age < 22:
-            raise serializers.ValidationError("Students in Data Science must be at least 22 years old.")
+        if course and hasattr(course, 'course_name'):
+            if course.course_name == "Computer Science" and age < 20:
+                raise serializers.ValidationError("Students in Computer Science must be at least 20 years old.")
+            if course.course_name == "Data Science" and age < 22:
+                raise serializers.ValidationError("Students in Data Science must be at least 22 years old.")
         return data
+
+
+# 🔁 Course Detail Serializer (reverse nested: shows all students)
+class CourseDetailSerializer(serializers.ModelSerializer):
+    # related_name='students' allows reverse lookup
+    students = StudentSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Course
+        fields = ['id', 'course_name', 'course_code', 'students']
