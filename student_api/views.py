@@ -1,112 +1,172 @@
-from rest_framework.decorators import api_view
+from rest_framework import generics, status
+from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
 from .models import Student, Course
 from .serializers import StudentSerializer, CourseSerializer, CourseDetailSerializer
 
 
-# ===========================
-# 🔹 Student CRUD (existing)
-# ===========================
+# ===================================================
+# 🧠 PART 1 — APIView IMPLEMENTATION (Manual CRUD)
+# ===================================================
 
-@api_view(['GET'])
-def list_students(request):
-    students = Student.objects.all()
-    serializer = StudentSerializer(students, many=True)
-    return Response(serializer.data, status=status.HTTP_200_OK)
+class StudentAPIView(APIView):
+    """Handles GET (list) and POST (create) for students."""
 
-
-@api_view(['POST'])
-def create_student(request):
-    serializer = StudentSerializer(data=request.data)
-    if serializer.is_valid():
-        serializer.save()
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-@api_view(['GET'])
-def get_student(request, pk):
-    try:
-        student = Student.objects.get(pk=pk)
-    except Student.DoesNotExist:
-        return Response({"error": "Student not found"}, status=status.HTTP_404_NOT_FOUND)
-
-    serializer = StudentSerializer(student)
-    return Response(serializer.data, status=status.HTTP_200_OK)
-
-
-@api_view(['PUT'])
-def update_student(request, pk):
-    try:
-        student = Student.objects.get(pk=pk)
-    except Student.DoesNotExist:
-        return Response({"error": "Student not found"}, status=status.HTTP_404_NOT_FOUND)
-
-    serializer = StudentSerializer(instance=student, data=request.data)
-    if serializer.is_valid():
-        serializer.save()
+    def get(self, request):
+        students = Student.objects.all()
+        serializer = StudentSerializer(students, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def post(self, request):
+        serializer = StudentSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['DELETE'])
-def delete_student(request, pk):
-    try:
-        student = Student.objects.get(pk=pk)
-    except Student.DoesNotExist:
-        return Response({"error": "Student not found"}, status=status.HTTP_404_NOT_FOUND)
+class StudentDetailAPIView(APIView):
+    """Handles GET, PUT, PATCH, DELETE for a single student."""
 
-    student.delete()
-    return Response({"message": "Student deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
+    def get_object(self, pk):
+        try:
+            return Student.objects.get(pk=pk)
+        except Student.DoesNotExist:
+            return None
 
+    def get(self, request, pk):
+        student = self.get_object(pk)
+        if not student:
+            return Response({"error": "Student not found"}, status=status.HTTP_404_NOT_FOUND)
+        serializer = StudentSerializer(student)
+        return Response(serializer.data)
 
+    def put(self, request, pk):
+        student = self.get_object(pk)
+        if not student:
+            return Response({"error": "Student not found"}, status=status.HTTP_404_NOT_FOUND)
+        serializer = StudentSerializer(student, data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-# ===================================
-# 🔸 Part 4 – Nested Serializer APIs
-# ===================================
+    def patch(self, request, pk):
+        student = self.get_object(pk)
+        if not student:
+            return Response({"error": "Student not found"}, status=status.HTTP_404_NOT_FOUND)
+        serializer = StudentSerializer(student, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-# 1️⃣ List Students with Course Details
-@api_view(['GET'])
-def list_students_with_courses(request):
-    students = Student.objects.all()
-    serializer = StudentSerializer(students, many=True)
-    return Response(serializer.data, status=status.HTTP_200_OK)
-
-
-# 2️⃣ List All Courses (Basic)
-@api_view(['GET'])
-def list_courses(request):
-    courses = Course.objects.all()
-    serializer = CourseSerializer(courses, many=True)
-    return Response(serializer.data, status=status.HTTP_200_OK)
-
-
-# 3️⃣ Course Detail with Enrolled Students
-@api_view(['GET'])
-def course_detail_with_students(request, pk):
-    try:
-        course = Course.objects.get(pk=pk)
-    except Course.DoesNotExist:
-        return Response({"error": "Course not found"}, status=status.HTTP_404_NOT_FOUND)
-
-    serializer = CourseDetailSerializer(course)
-    return Response(serializer.data, status=status.HTTP_200_OK)
-
-
-# 4️⃣ Create a New Course
-@api_view(['POST'])
-def create_course(request):
-    serializer = CourseSerializer(data=request.data)
-    if serializer.is_valid():
-        serializer.save()
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    def delete(self, request, pk):
+        student = self.get_object(pk)
+        if not student:
+            return Response({"error": "Student not found"}, status=status.HTTP_404_NOT_FOUND)
+        student.delete()
+        return Response({"message": "Student deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
 
 
-# 5️⃣ Students by Course Code (using double underscore notation)
-@api_view(['GET'])
-def students_by_course_code(request, course_code):
-    students = Student.objects.filter(course__course_code=course_code)
-    serializer = StudentSerializer(students, many=True)
-    return Response(serializer.data, status=status.HTTP_200_OK)
+# ===================================================
+# 🎓 COURSE APIViews
+# ===================================================
+
+class CourseAPIView(APIView):
+    """Handles GET and POST for courses."""
+
+    def get(self, request):
+        courses = Course.objects.all()
+        serializer = CourseSerializer(courses, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        serializer = CourseSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class CourseDetailAPIView(APIView):
+    """Retrieve a course with related students."""
+
+    def get(self, request, pk):
+        try:
+            course = Course.objects.get(pk=pk)
+        except Course.DoesNotExist:
+            return Response({"error": "Course not found"}, status=status.HTTP_404_NOT_FOUND)
+        serializer = CourseDetailSerializer(course)
+        return Response(serializer.data)
+
+
+class StudentsByCourseCodeAPIView(APIView):
+    """List students filtered by course code."""
+    def get(self, request, course_code):
+        students = Student.objects.filter(course__course_code=course_code)
+        serializer = StudentSerializer(students, many=True)
+        return Response(serializer.data)
+
+
+# ===================================================
+# 🧠 PART 2 — GENERIC VIEWS IMPLEMENTATION
+# ===================================================
+
+class StudentListCreateView(generics.ListCreateAPIView):
+    """GET: List all students, POST: Create new student"""
+    queryset = Student.objects.all()
+    serializer_class = StudentSerializer
+
+
+class StudentDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """GET, PUT, PATCH, DELETE single student"""
+    queryset = Student.objects.all()
+    serializer_class = StudentSerializer
+
+
+class StudentCreateOnlyView(generics.CreateAPIView):
+    """POST only"""
+    queryset = Student.objects.all()
+    serializer_class = StudentSerializer
+
+
+class StudentListOnlyView(generics.ListAPIView):
+    """GET only"""
+    queryset = Student.objects.all()
+    serializer_class = StudentSerializer
+
+
+# ===================================================
+# 🎓 GENERIC COURSE VIEWS
+# ===================================================
+
+class CourseListCreateView(generics.ListCreateAPIView):
+    queryset = Course.objects.all()
+    serializer_class = CourseSerializer
+
+
+class CourseDetailView(generics.RetrieveAPIView):
+    queryset = Course.objects.all()
+    serializer_class = CourseSerializer
+
+
+# ===================================================
+# 🔍 PART 3 — LOOKUP FIELD DEMONSTRATIONS
+# ===================================================
+
+# Task 2: lookup_field=email
+class StudentByEmailView(generics.RetrieveAPIView):
+    queryset = Student.objects.all()
+    serializer_class = StudentSerializer
+    lookup_field = "email"         # field to look up by
+    lookup_url_kwarg = "email"     # matches <str:email> in URL
+
+
+# Task 3: filter by course code
+class StudentByCourseView(generics.ListAPIView):
+    serializer_class = StudentSerializer
+
+    def get_queryset(self):
+        course_code = self.kwargs.get("course_code")
+        return Student.objects.filter(course__course_code=course_code)
