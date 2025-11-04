@@ -83,8 +83,6 @@ class StudentMiniSerializer(serializers.ModelSerializer):
 
 class CourseDetailSerializer(serializers.ModelSerializer):
     students = StudentMiniSerializer(many=True, read_only=True)
-
     class Meta:
         model = Course
         fields = ['id', 'course_name', 'course_code', 'students']
-
