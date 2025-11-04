@@ -99,15 +99,6 @@ def course_detail_with_students(request, pk):
 def create_course(request):
     serializer = CourseSerializer(data=request.data)
     if serializer.is_valid():
-        course_name = serializer.validated_data.get('course_name', '')
-        course_code = serializer.validated_data.get('course_code', '')
-
-        # ✅ Validation: course_code unique + name length
-        if Course.objects.filter(course_code=course_code).exists():
-            return Response({"error": "Course code must be unique."}, status=status.HTTP_400_BAD_REQUEST)
-        if len(course_name.strip()) < 3:
-            return Response({"error": "Course name must be at least 3 characters long."}, status=status.HTTP_400_BAD_REQUEST)
-
         serializer.save()
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
