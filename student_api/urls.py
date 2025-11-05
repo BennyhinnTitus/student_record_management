@@ -20,7 +20,13 @@ from .views import (
     # 🔍 Part 3 – Custom Lookups
     StudentByEmailView,
     StudentByCourseView,
+
+    # 🧩 New — User Registration
+    RegisterUserAPIView,
+    CurrentUserAPIView,
 )
+from rest_framework.authtoken.views import obtain_auth_token
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 urlpatterns = [
     # ==================================================
@@ -52,4 +58,17 @@ urlpatterns = [
     # ==================================================
     path('courses-generic/', CourseListCreateView.as_view(), name='course-list-create-generic'),
     path('courses-generic/<int:pk>/', CourseDetailView.as_view(), name='course-detail-generic'),
+
+    # ==================================================
+    # 🧩 NEW — USER REGISTRATION ENDPOINT
+    # ==================================================
+    path('register/', RegisterUserAPIView.as_view(), name='register'),
+    path('users/me/', CurrentUserAPIView.as_view(), name='current-user'),
+
+    # Token auth (DRF built-in)
+    path('api-token-auth/', obtain_auth_token, name='api-token-auth'),
+
+    # JWT auth (simplejwt)
+    path('jwt/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('jwt/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 ]

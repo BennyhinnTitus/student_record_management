@@ -1,8 +1,18 @@
 from rest_framework import generics, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.authentication import TokenAuthentication
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from .models import Student, Course
-from .serializers import StudentSerializer, CourseSerializer, CourseDetailSerializer
+from .serializers import (
+    StudentSerializer,
+    CourseSerializer,
+    CourseDetailSerializer,
+    UserSerializer,
+)
+from django.contrib.auth.models import User
+from rest_framework.authtoken.models import Token
 
 
 # ===================================================
@@ -11,6 +21,8 @@ from .serializers import StudentSerializer, CourseSerializer, CourseDetailSerial
 
 class StudentAPIView(APIView):
     """Handles GET (list) and POST (create) for students."""
+    authentication_classes = [TokenAuthentication, JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         students = Student.objects.all()
@@ -27,6 +39,8 @@ class StudentAPIView(APIView):
 
 class StudentDetailAPIView(APIView):
     """Handles GET, PUT, PATCH, DELETE for a single student."""
+    authentication_classes = [TokenAuthentication, JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def get_object(self, pk):
         try:
@@ -70,11 +84,13 @@ class StudentDetailAPIView(APIView):
 
 
 # ===================================================
-# 🎓 COURSE APIViews
+# 🎓 COURSE APIViews (Protected)
 # ===================================================
 
 class CourseAPIView(APIView):
     """Handles GET and POST for courses."""
+    authentication_classes = [TokenAuthentication, JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         courses = Course.objects.all()
@@ -91,6 +107,8 @@ class CourseAPIView(APIView):
 
 class CourseDetailAPIView(APIView):
     """Retrieve a course with related students."""
+    authentication_classes = [TokenAuthentication, JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def get(self, request, pk):
         try:
@@ -103,6 +121,9 @@ class CourseDetailAPIView(APIView):
 
 class StudentsByCourseCodeAPIView(APIView):
     """List students filtered by course code."""
+    authentication_classes = [TokenAuthentication, JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
     def get(self, request, course_code):
         students = Student.objects.filter(course__course_code=course_code)
         serializer = StudentSerializer(students, many=True)
@@ -114,27 +135,31 @@ class StudentsByCourseCodeAPIView(APIView):
 # ===================================================
 
 class StudentListCreateView(generics.ListCreateAPIView):
-    """GET: List all students, POST: Create new student"""
     queryset = Student.objects.all()
     serializer_class = StudentSerializer
+    authentication_classes = [TokenAuthentication, JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
 
 class StudentDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """GET, PUT, PATCH, DELETE single student"""
     queryset = Student.objects.all()
     serializer_class = StudentSerializer
+    authentication_classes = [TokenAuthentication, JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
 
 class StudentCreateOnlyView(generics.CreateAPIView):
-    """POST only"""
     queryset = Student.objects.all()
     serializer_class = StudentSerializer
+    authentication_classes = [TokenAuthentication, JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
 
 class StudentListOnlyView(generics.ListAPIView):
-    """GET only"""
     queryset = Student.objects.all()
     serializer_class = StudentSerializer
+    authentication_classes = [TokenAuthentication, JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
 
 # ===================================================
@@ -144,29 +169,80 @@ class StudentListOnlyView(generics.ListAPIView):
 class CourseListCreateView(generics.ListCreateAPIView):
     queryset = Course.objects.all()
     serializer_class = CourseSerializer
+    authentication_classes = [TokenAuthentication, JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
 
 class CourseDetailView(generics.RetrieveAPIView):
     queryset = Course.objects.all()
     serializer_class = CourseSerializer
+    authentication_classes = [TokenAuthentication, JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
 
 # ===================================================
 # 🔍 PART 3 — LOOKUP FIELD DEMONSTRATIONS
 # ===================================================
 
-# Task 2: lookup_field=email
 class StudentByEmailView(generics.RetrieveAPIView):
     queryset = Student.objects.all()
     serializer_class = StudentSerializer
-    lookup_field = "email"         # field to look up by
-    lookup_url_kwarg = "email"     # matches <str:email> in URL
+    lookup_field = "email"
+    lookup_url_kwarg = "email"
+    authentication_classes = [TokenAuthentication, JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
 
-# Task 3: filter by course code
 class StudentByCourseView(generics.ListAPIView):
     serializer_class = StudentSerializer
+    authentication_classes = [TokenAuthentication, JWTAuthentication]
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         course_code = self.kwargs.get("course_code")
         return Student.objects.filter(course__course_code=course_code)
+
+
+# ===================================================
+# 👤 USER REGISTRATION + CURRENT USER VIEW
+# ===================================================
+
+class RegisterUserAPIView(generics.CreateAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    permission_classes = [AllowAny]
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        # serializer.save() now returns a User instance (fixed in serializer)
+        user = serializer.save()
+
+        # Generate token (or get existing)
+        token, _ = Token.objects.get_or_create(user=user)
+
+        return Response({
+            "user": {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+            },
+            "token": token.key,
+        }, status=status.HTTP_201_CREATED)
+
+
+class CurrentUserAPIView(APIView):
+    """Demo endpoint showing how to access the authenticated user."""
+    authentication_classes = [TokenAuthentication, JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        return Response({
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+        }, status=status.HTTP_200_OK)
+
+
